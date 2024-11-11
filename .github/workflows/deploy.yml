@@ -48,11 +48,12 @@ jobs:
       - name: EC2에 SSH로 접속하여 컨테이너 실행
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.EC2_HOST }}  # EC2 인스턴스의 퍼블릭 IP
-          username: ${{ secrets.EC2_USERNAME }}  # EC2 사용자명 (보통 'ubuntu')
-          key: ${{ secrets.EC2_PRIVATE_KEY }}  # EC2 private key (GitHub 시크릿에 저장된 키)
+          host: ${{ secrets.EC2_HOST }}  # **EC2 인스턴스의 퍼블릭 IP** (예: `3.38.7.181`)
+          username: ubuntu  # EC2 사용자명 (보통 'ubuntu')
+          key: ${{ secrets.EC2_PRIVATE_KEY }}  # **EC2 private key** (GitHub 시크릿에 저장된 키)
           script_stop: true
           script: |
+            # SSH로 접속하여 이전 컨테이너 종료 및 새로운 컨테이너 실행
             docker stop nhj-server || true  # 이전에 실행 중인 컨테이너 종료
             docker rm nhj-server || true  # 이전 컨테이너 제거
             docker pull ${{ steps.login-ecr.outputs.registry }}/nhj-server:latest  # 최신 이미지 풀
@@ -60,13 +61,15 @@ jobs:
 
       - name: RDS와 ElastiCache 환경 설정
         run: |
-          # RDS와 ElastiCache 환경 변수를 EC2에 설정
-          export RDS_HOST=${{ secrets.RDS_HOST }}
+          # EC2에 환경 변수 설정
+          export RDS_HOST=${{ secrets.RDS_HOST }}  # **RDS MySQL 호스트** (예: `database-ohapjijole`)
           export RDS_PORT=3306
-          export REDIS_HOST=${{ secrets.REDIS_HOST }}
+          export REDIS_HOST=${{ secrets.REDIS_HOST }}  # **Redis 호스트** (예: `redis-ohapjijole`)
           export REDIS_PORT=6379
 
-          # EC2에서 RDS와 ElastiCache에 연결 확인
-          # 예시로 MySQL과 Redis 연결 테스트 명령어를 추가
-          mysql -h $RDS_HOST -P $RDS_PORT -u root -p${{ secrets.RDS_PASSWORD }} -e "SHOW DATABASES;"
+          # RDS와 ElastiCache 연결 테스트
+          echo "Testing MySQL connection..."
+          mysql -h $RDS_HOST -P $RDS_PORT -u root -p${{ secrets.RDS_PASSWORD }} -e "SHOW DATABASES;"  # **RDS 비밀번호** 사용
+
+          echo "Testing Redis connection..."
           redis-cli -h $REDIS_HOST -p $REDIS_PORT PING
