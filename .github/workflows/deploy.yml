@@ -20,10 +20,16 @@ jobs:
           java-version: 17  # Java 17 설치
 
       - name: application.yml 파일 만들기
-        run: echo "${{ secrets.APPLICATION_PROPERTIES }}" > ./src/main/resources/application.yml  # application.yml 파일 생성
+        run: |
+          echo "Creating application.yml from secrets..."
+          echo "${{ secrets.APPLICATION_PROPERTIES }}" > ./src/main/resources/application.yml  # application.yml 파일 생성
+        continue-on-error: false  # 실패시 바로 중지하도록 설정
 
       - name: 테스트 및 빌드하기
-        run: ./gradlew clean build  # Gradle로 빌드
+        run: |
+          echo "Running Gradle build..."
+          ./gradlew clean build  # Gradle로 빌드
+        continue-on-error: false  # 실패시 바로 중지하도록 설정
 
       - name: AWS Resource에 접근할 수 있게 AWS credentials 설정
         uses: aws-actions/configure-aws-credentials@v4
@@ -31,19 +37,30 @@ jobs:
           aws-region: ap-northeast-2  # AWS 리전 설정
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}  # GitHub 시크릿에 저장된 AWS 액세스 키
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}  # GitHub 시크릿에 저장된 AWS 비밀 액세스 키
+        continue-on-error: false
 
       - name: ECR에 로그인하기
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2  # AWS ECR에 로그인
+        continue-on-error: false
 
       - name: Docker 이미지 생성
-        run: docker build -t nhj-server .  # Docker 이미지를 빌드
+        run: |
+          echo "Building Docker image..."
+          docker build -t nhj-server .  # Docker 이미지를 빌드
+        continue-on-error: false
 
       - name: Docker 이미지에 Tag 붙이기
-        run: docker tag nhj-server ${{ steps.login-ecr.outputs.registry }}/nhj-server:latest  # ECR 레지스트리에 태그 추가
+        run: |
+          echo "Tagging Docker image..."
+          docker tag nhj-server ${{ steps.login-ecr.outputs.registry }}/nhj-server:latest  # ECR 레지스트리에 태그 추가
+        continue-on-error: false
 
       - name: ECR에 Docker 이미지 Push하기
-        run: docker push ${{ steps.login-ecr.outputs.registry }}/nhj-server:latest  # ECR에 이미지 푸시
+        run: |
+          echo "Pushing Docker image to ECR..."
+          docker push ${{ steps.login-ecr.outputs.registry }}/nhj-server:latest  # ECR에 이미지 푸시
+        continue-on-error: false
 
       - name: EC2에 SSH로 접속하여 Docker 컨테이너 실행
         uses: appleboy/ssh-action@v1.0.3
@@ -60,13 +77,14 @@ jobs:
             docker pull ${{ steps.login-ecr.outputs.registry }}/nhj-server:latest  # 최신 이미지 풀
             echo "Running the Docker container..."
             docker run -d --name nhj-server -p 8080:8080 ${{ steps.login-ecr.outputs.registry }}/nhj-server:latest  # 컨테이너 실행
+        continue-on-error: false
 
       - name: RDS와 ElastiCache 환경 설정
         run: |
           echo "Setting environment variables for RDS and Redis..."
-          export RDS_HOST=${{ secrets.RDS_HOST }}  # RDS MySQL 호스트
+          export RDS_HOST="nhj-server.cr6my60sq9ec.ap-northeast-2.rds.amazonaws.com"  # **RDS MySQL 호스트**
           export RDS_PORT=3306
-          export REDIS_HOST=${{ secrets.REDIS_HOST }}  # Redis 호스트
+          export REDIS_HOST="nhj-redis-001.916v7r.0001.apn2.cache.amazonaws.com"  # **Redis 호스트**
           export REDIS_PORT=6379
 
           # RDS와 ElastiCache 연결 테스트
@@ -77,3 +95,4 @@ jobs:
           echo "Testing Redis connection..."
           # Redis 연결 시도
           redis-cli -h $REDIS_HOST -p $REDIS_PORT -t 10 PING || { echo "Redis connection failed!"; exit 1; }
+        continue-on-error: false
