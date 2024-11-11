@@ -68,7 +68,7 @@ jobs:
 
           # RDS와 ElastiCache 연결 테스트
           echo "Testing MySQL connection..."
-          mysql -h $RDS_HOST -P $RDS_PORT -u root -p${{ secrets.RDS_PASSWORD }} -e "SHOW DATABASES;"  # **RDS 비밀번호** 사용
+          mysql -h $RDS_HOST -P $RDS_PORT -u root -p${{ secrets.RDS_PASSWORD }} --connect-timeout=10 -e "SHOW DATABASES;"  # **RDS 비밀번호** 사용
 
           echo "Testing Redis connection..."
-          redis-cli -h $REDIS_HOST -p $REDIS_PORT PING
+          redis-cli -h $REDIS_HOST -p $REDIS_PORT -t 10 PING
