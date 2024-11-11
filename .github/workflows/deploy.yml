@@ -3,7 +3,7 @@ name: Deploy To EC2
 on:
   push:
     branches:
-      - feat/*  # feat/* 브랜치에 푸시될 때 트리거
+      - main
 
 jobs:
   deploy:
