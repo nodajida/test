@@ -53,22 +53,27 @@ jobs:
           key: ${{ secrets.EC2_PRIVATE_KEY }}  # **EC2 private key** (GitHub 시크릿에 저장된 키)
           script_stop: true
           script: |
+            echo "Stopping any running containers..."
             docker stop nhj-server || true  # 이전에 실행 중인 컨테이너 종료
             docker rm nhj-server || true  # 이전 컨테이너 제거
+            echo "Pulling the latest Docker image from ECR..."
             docker pull ${{ steps.login-ecr.outputs.registry }}/nhj-server:latest  # 최신 이미지 풀
+            echo "Running the Docker container..."
             docker run -d --name nhj-server -p 8080:8080 ${{ steps.login-ecr.outputs.registry }}/nhj-server:latest  # 컨테이너 실행
 
       - name: RDS와 ElastiCache 환경 설정
         run: |
-          # EC2에 환경 변수 설정
-          export RDS_HOST=${{ secrets.RDS_HOST }}  # **RDS MySQL 호스트** (예: `database-ohapjijole`)
+          echo "Setting environment variables for RDS and Redis..."
+          export RDS_HOST=${{ secrets.RDS_HOST }}  # RDS MySQL 호스트
           export RDS_PORT=3306
-          export REDIS_HOST=${{ secrets.REDIS_HOST }}  # **Redis 호스트** (예: `redis-ohapjijole`)
+          export REDIS_HOST=${{ secrets.REDIS_HOST }}  # Redis 호스트
           export REDIS_PORT=6379
 
           # RDS와 ElastiCache 연결 테스트
           echo "Testing MySQL connection..."
-          mysql -h $RDS_HOST -P $RDS_PORT -u root -p${{ secrets.RDS_PASSWORD }} --connect-timeout=10 -e "SHOW DATABASES;"  # **RDS 비밀번호** 사용
+          # MySQL 연결 시도
+          mysql -h $RDS_HOST -P $RDS_PORT -u root -p${{ secrets.RDS_PASSWORD }} --connect-timeout=10 -e "SHOW DATABASES;" || { echo "MySQL connection failed!"; exit 1; }
 
           echo "Testing Redis connection..."
-          redis-cli -h $REDIS_HOST -p $REDIS_PORT -t 10 PING
+          # Redis 연결 시도
+          redis-cli -h $REDIS_HOST -p $REDIS_PORT -t 10 PING || { echo "Redis connection failed!"; exit 1; }
